@@ -52,6 +52,8 @@ class PriceAmazon extends Model
         50 => 1.10
     ];
 
+    protected $weight;
+
     //---------------------------------------------------------------------------------------------------------
     // Methods
     //---------------------------------------------------------------------------------------------------------
@@ -87,19 +89,15 @@ class PriceAmazon extends Model
     }
 
     // Cálculo del PVP mínimo Amazon
-    protected static function minimum_price($shipping_cost, $pnn, $margin, $iva)
+    protected static function minimum_price($shipping_cost, $pnn, $margin, $iva, $animalear_price)
     {
-        $minimum_price = (static::$logistic_cost +
+        $minimum_price = (
+                static::$logistic_cost +
                 $shipping_cost +
                 $pnn +
-                $margin) * static::$comission;
+                $margin
+        ) * static::$comission * (1 + $iva);
 
-        return $minimum_price * (1 + $iva);
-    }
-
-    // Excepción - PVP minimo Amazon < PVP Animalear
-    protected static function minimum_price_exception($animalear_price, $minimum_price)
-    {
         if ($minimum_price < $animalear_price) {
             return $animalear_price * 1.03;
         }
@@ -131,49 +129,44 @@ class PriceAmazon extends Model
         return $maximum_price;
     }
 
-    // Devuelve del PVP final
-    public function set_final_price($minimum_price, $maximum_price, $buy_box_price, $iva)
+    // Actualiza el precio (sin IVA) del producto
+    public function set_final_price($pnn, $minimum_price, $maximum_price, $buy_box_price, $iva)
     {
         $price = static::final_price($minimum_price, $maximum_price, $buy_box_price);
+
+        $this->pnn = $pnn;
 
         $this->pvp = round($price / (1 + $iva), 2);
 
         $this->save();
     }
 
-    protected function generate()
+    // Actualiza todos los Precios de Amazon
+    protected function update_prices()
     {
         $amazon_prices = PriceAmazon::all();
 
         foreach ($amazon_prices as $amazonPrice) {
 
-            $this->pnn =  $amazonPrice->product->price->pnn;
-            $iva = ($amazonPrice->product->tax_class_id == 5) ? 0.21 : 0.1;
-            $animalear_price = $amazonPrice->product->price->pvp;
-
-            $shipping_cost = $amazonPrice::shipping_cost($amazonPrice->product->weight);
-
-            $margin = $amazonPrice::margin(
-                    $amazonPrice->product->price->margen_estimado,
-                    $animalear_price
-            );
-
             $minimum_price = $amazonPrice::minimum_price(
-                    $shipping_cost,
-                    $this->pnn,
-                    $margin,
-                    $iva
+                    $amazonPrice::shipping_cost($amazonPrice->product->weight),
+                    $amazonPrice->product->price->pnn,
+                    $amazonPrice::margin(
+                            $amazonPrice->product->price->margen_estimado,
+                            $amazonPrice->product->price->pvp
+                    ),
+                    ($amazonPrice->product->tax_class_id == 5) ? 0.21 : 0.1,
+                    $amazonPrice->product->price->pvp
             );
-
-            $minimum_price = $amazonPrice::minimum_price_exception($animalear_price, $minimum_price);
 
             $maximum_price = $amazonPrice::maximum_price($minimum_price);
 
             $amazonPrice->set_final_price(
+                    $amazonPrice->product->price->pnn,
                     $minimum_price,
                     $maximum_price,
                     $amazonPrice->minderest->price,
-                    $iva
+                    ($amazonPrice->product->tax_class_id == 5) ? 0.21 : 0.1
             );
         }
     }

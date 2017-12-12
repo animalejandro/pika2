@@ -48,56 +48,67 @@ class PriceAmazonTest extends FeatureTestCase
 
     function test_calculate_minimum_price()
     {
-        $minimum_price = PriceAmazon::minimum_price($shipping_cost = -0.72,  $pnn = 10, $margin = 1, $iva = 0.1);
+        $minimum_price = PriceAmazon::minimum_price(
+            $shipping_cost = -0.72,
+            $pnn = 20,
+            $margin = 1,
+            $iva = 0.1,
+            $animalear_price = 25
+        );
 
-        $this->assertSame(16.22995, $minimum_price);
+        $this->assertSame((2.55 + $shipping_cost + $pnn + $margin) * 1.15 * (1 + $iva), $minimum_price);
 
-        $minimum_price = PriceAmazon::minimum_price($shipping_cost = -0.72,  $pnn = 10, $margin = 1, $iva = 0.21);
+        $minimum_price = PriceAmazon::minimum_price(
+            $shipping_cost = -0.72,
+            $pnn = 20,
+            $margin = 1,
+            $iva = 0.21,
+            $animalear_price = 25
+        );
 
-        $this->assertSame(17.852945, $minimum_price);
-    }
+        $this->assertSame((2.55 + $shipping_cost + $pnn + $margin) * 1.15 * (1 + $iva), $minimum_price);
 
-    function test_check_if_minimum_price_is_lower_than_animalear_price()
-    {
-        $minimum_price = PriceAmazon::minimum_price_exception($animalear_price = 25, $minimum_price = 24.2);
+        $minimum_price = PriceAmazon::minimum_price(
+            $shipping_cost = -0.72,
+            $pnn = 14,
+            $margin = 1,
+            $iva = 0.1,
+            $animalear_price = 22
+        );
 
-        $this->assertSame(25.75, $minimum_price);
-
-        $minimum_price = PriceAmazon::minimum_price_exception($animalear_price = 25, $minimum_price = 28.6);
-
-        $this->assertSame(28.6, $minimum_price);
+        $this->assertSame($animalear_price * 1.03, $minimum_price);
     }
 
     function test_calculate_maximum_price()
     {
         $maximum_price = PriceAmazon::maximum_price($minimum_price = 6);
 
-        $this->assertSame(9.0, $maximum_price);
+        $this->assertSame($minimum_price * 1.5, $maximum_price);
 
         $maximum_price = PriceAmazon::maximum_price($minimum_price = 15);
 
-        $this->assertSame(19.5, $maximum_price);
+        $this->assertSame($minimum_price * 1.3, $maximum_price);
 
         $maximum_price = PriceAmazon::maximum_price($minimum_price = 28);
 
-        $this->assertSame(32.2, $maximum_price);
+        $this->assertSame($minimum_price * 1.15, $maximum_price);
 
         $maximum_price = PriceAmazon::maximum_price($minimum_price = 70);
 
-        $this->assertSame(77.0, $maximum_price);
+        $this->assertSame($minimum_price * 1.1, $maximum_price);
     }
 
     function test_calculate_final_price()
     {
         $price_amazon = $this->createPriceAmazon();
 
-        $price_amazon->set_final_price($minimum_price = 20, $maximum_price = 28, $buy_box_price = 26, $iva = 0.10);
+        $price_amazon->set_final_price($pnn = 10, $minimum_price = 20, $maximum_price = 28, $buy_box_price = 26, $iva = 0.10);
 
-        $this->assertSame(23.55, $price_amazon->pvp);
+        $this->assertSame(round(($buy_box_price - 0.10) / (1 + $iva), 2), $price_amazon->pvp);
 
-        $price_amazon->set_final_price($minimum_price = 22, $maximum_price = 28, $buy_box_price = 25, $iva = 0.21);
+        $price_amazon->set_final_price($pnn = 20, $minimum_price = 22, $maximum_price = 28, $buy_box_price = 25, $iva = 0.21);
 
-        $this->assertSame(23.14, $price_amazon->pvp);
+        $this->assertSame(round($maximum_price / (1 + $iva), 2), $price_amazon->pvp);
     }
 
 }
