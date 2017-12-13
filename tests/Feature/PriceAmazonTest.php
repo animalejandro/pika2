@@ -5,110 +5,168 @@ use Tests\FeatureTestCase;
 
 class PriceAmazonTest extends FeatureTestCase
 {
+    protected $product;
+    protected $product2;
+    protected $product3;
+
+    protected $price;
+    protected $price2;
+    protected $price3;
+
+    function setUp()
+    {
+        parent::setUp();
+
+        $this->product = $this->createProduct([
+            'weight' => 1,
+            'tax_class_id' => 6
+        ]);
+
+        $this->price = $this->createPrice([
+            'sku' => $this->product->sku,
+            'pnn' => 12,
+            'pvp' => 20,
+            'margin_e' => 2
+        ]);
+
+        $this->product2 = $this->createProduct([
+            'weight' => 12,
+            'tax_class_id' => 5
+        ]);
+
+        $this->price2 = $this->createPrice([
+            'sku' => $this->product2->sku,
+            'pnn' => 20,
+            'pvp' => 75,
+            'margin_e' => 2
+        ]);
+
+        $this->product3 = $this->createProduct([
+            'weight' => 32,
+            'tax_class_id' => 6
+        ]);
+
+        $this->price3 = $this->createPrice([
+            'sku' => $this->product3->sku,
+            'pnn' => 16,
+            'pvp' => 20,
+            'margin_e' => 2
+        ]);
+    }
+
     function test_can_get_shipping_cost_from_shipping_cost_range_array()
     {
-        $shipping_cost = PriceAmazon::weight_shipping_cost($weight = 0.5);
+        $priceAmazon = new PriceAmazon($this->price);
 
-        $this->assertSame(3.81, $shipping_cost);
+        $this->assertSame(3.81, $priceAmazon->shipping_cost_weight());
 
-        $shipping_cost = PriceAmazon::weight_shipping_cost($weight = 12);
+        $priceAmazon2 = new PriceAmazon($this->price2);
 
-        $this->assertSame(5.37, $shipping_cost);
+        $this->assertSame(5.37, $priceAmazon2->shipping_cost_weight());
 
-        $shipping_cost = PriceAmazon::weight_shipping_cost($weight = 32);
+        $priceAmazon3 = new PriceAmazon($this->price3);
 
-        $this->assertSame(8.18, $shipping_cost);
+        $this->assertSame(8.18, $priceAmazon3->shipping_cost_weight());
     }
 
     function test_calculate_final_shipping_cost()
     {
-        $shipping_cost = PriceAmazon::shipping_cost($weight = 0.5);
+        $priceAmazon = new PriceAmazon($this->price);
 
-        $this->assertSame(3.81 - 4.99, $shipping_cost);
+        $this->assertSame(3.81 - 4.99, $priceAmazon->shipping_cost());
 
-        $shipping_cost = PriceAmazon::shipping_cost($weight = 12);
+        $priceAmazon2 = new PriceAmazon($this->price2);
 
-        $this->assertSame(5.37 - 4.99, $shipping_cost);
+        $this->assertSame(5.37 - 4.99, $priceAmazon2->shipping_cost());
 
-        $shipping_cost = PriceAmazon::shipping_cost($weight = 32);
+        $priceAmazon3 = new PriceAmazon($this->price3);
 
-        $this->assertSame(8.18 - 4.99, $shipping_cost);
+        $this->assertSame(8.18 - 4.99, $priceAmazon3->shipping_cost());
     }
 
     function test_calculate_margin()
     {
-        $margin = PriceAmazon::margin($animalear_margin = 2, $animalear_price = 20);
+        $priceAmazon = new PriceAmazon($this->price);
 
-        $this->assertSame(2 / 2, $margin);
+        $this->assertSame(2 / 2, $priceAmazon->margin());
 
-        $margin2 = PriceAmazon::margin($animalear_margin = 2, $animalear_price = 75);
+        $priceAmazon2 = new PriceAmazon($this->price2);
 
-        $this->assertSame(2, $margin2);
+        $this->assertSame(2, $priceAmazon2->margin());
     }
 
     function test_calculate_minimum_price()
     {
-        $minimum_price = PriceAmazon::minimum_price(
-            $shipping_cost = -0.72,
-            $pnn = 20,
-            $margin = 1,
-            $iva = 0.1,
-            $animalear_price = 25
-        );
+        $priceAmazon = new PriceAmazon($this->price);
 
-        $this->assertSame((2.55 + $shipping_cost + $pnn + $margin) * 1.15 * (1 + $iva), $minimum_price);
+        $this->assertSame($this->price->pvp * 1.03, $priceAmazon->minimum_price());
 
-        $minimum_price = PriceAmazon::minimum_price(
-            $shipping_cost = -0.72,
-            $pnn = 20,
-            $margin = 1,
-            $iva = 0.21,
-            $animalear_price = 25
-        );
+        $priceAmazon3 = new PriceAmazon($this->price3);
 
-        $this->assertSame((2.55 + $shipping_cost + $pnn + $margin) * 1.15 * (1 + $iva), $minimum_price);
+        $result = (
+                2.55 +
+                $priceAmazon3->shipping_cost() +
+                $this->price3->pnn +
+                $priceAmazon3->margin()) * 1.15 * $priceAmazon->get_iva();
 
-        $minimum_price = PriceAmazon::minimum_price(
-            $shipping_cost = -0.72,
-            $pnn = 14,
-            $margin = 1,
-            $iva = 0.1,
-            $animalear_price = 22
-        );
-
-        $this->assertSame($animalear_price * 1.03, $minimum_price);
+        $this->assertSame($result, $priceAmazon3->minimum_price());
     }
 
     function test_calculate_maximum_price()
     {
-        $maximum_price = PriceAmazon::maximum_price($minimum_price = 6);
+        $priceAmazon = new PriceAmazon($this->price);
 
-        $this->assertSame($minimum_price * 1.5, $maximum_price);
+        $this->assertSame($priceAmazon->minimum_price() * 1.15, $priceAmazon->maximum_price());
 
-        $maximum_price = PriceAmazon::maximum_price($minimum_price = 15);
+        $priceAmazon2 = new PriceAmazon($this->price2);
 
-        $this->assertSame($minimum_price * 1.3, $maximum_price);
-
-        $maximum_price = PriceAmazon::maximum_price($minimum_price = 28);
-
-        $this->assertSame($minimum_price * 1.15, $maximum_price);
-
-        $maximum_price = PriceAmazon::maximum_price($minimum_price = 70);
-
-        $this->assertSame($minimum_price * 1.1, $maximum_price);
+        $this->assertSame($priceAmazon2->minimum_price() * 1.10, $priceAmazon2->maximum_price());
     }
 
-    function test_calculate_final_price()
+    function test_calculate_price()
     {
-        $price_amazon = $this->createPriceAmazon();
+        $priceMinderest = $this->createPriceMinderest([
+            'sku' => $this->price->sku,
+            'price_amazon' => 26
+        ]);
 
-        $price_amazon->set_final_price($pnn = 10, $minimum_price = 20, $maximum_price = 28, $buy_box_price = 26, $iva = 0.10);
+        $priceAmazon = new PriceAmazon($this->price);
 
-        $this->assertSame(round(($buy_box_price - 0.10) / (1 + $iva), 2), $price_amazon->pvp);
+        $this->assertSame(($priceMinderest->price_amazon - 0.10), $priceAmazon->price());
 
-        $price_amazon->set_final_price($pnn = 20, $minimum_price = 22, $maximum_price = 28, $buy_box_price = 25, $iva = 0.21);
+        $priceMinderest = $this->createPriceMinderest([
+            'sku' => $this->price2->sku,
+            'price_amazon' => 60
+        ]);
 
-        $this->assertSame(round($maximum_price / (1 + $iva), 2), $price_amazon->pvp);
+        $priceAmazon2 = new PriceAmazon($this->price2);
+
+        $this->assertSame($priceAmazon2->maximum_price(), $priceAmazon2->price());
+    }
+
+    function test_set_price()
+    {
+        $priceMinderest = $this->createPriceMinderest([
+            'sku' => $this->price->sku,
+            'price_amazon' => 26
+        ]);
+
+        $priceAmazon = new PriceAmazon($this->price);
+
+        $priceAmazon->set_price();
+
+        $this->assertSame(round($priceAmazon->price() / $priceAmazon->get_iva(), 2), $priceAmazon->pvp);
+
+        $priceMinderest = $this->createPriceMinderest([
+            'sku' => $this->price2->sku,
+            'price_amazon' => 60
+        ]);
+
+        $priceAmazon2 = new PriceAmazon($this->price2);
+
+        $priceAmazon2->set_price();
+
+        $this->assertSame(round($priceAmazon2->price() / $priceAmazon2->get_iva(), 2), $priceAmazon2->pvp);
     }
 
 }

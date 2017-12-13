@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Pricing\PriceAmazonController;
 use Illuminate\Foundation\Inspiring;
 
 /*
@@ -16,3 +17,7 @@ use Illuminate\Foundation\Inspiring;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->describe('Display an inspiring quote');
+
+Artisan::command('prices:amazon', function ( PriceAmazonController $priceAmazonController ) {
+    $priceAmazonController->generate();
+})->describe('Generar precios para Amazon');

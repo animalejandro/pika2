@@ -6,19 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PriceAmazon extends Model
 {
-    public $table = 'prices_amazon';
-
-    /* Relationship
-    public function product()
-    {
-        return $this->belongsTo('App\Models\Catalog\Product', 'sku', 'sku');
-    }
-
-    public function minderest()
-    {
-        return $this->belongsTo('App\Models\Pricing\PriceAmazonMinderest', 'sku', 'sku');
-    }
-    */
+    protected $table = 'prices_amazon';
 
     //---------------------------------------------------------------------------------------------------------
     // Variables
@@ -52,17 +40,38 @@ class PriceAmazon extends Model
         50 => 1.10
     ];
 
-    protected $weight;
+    protected $price;
+
+    protected $iva;
 
     //---------------------------------------------------------------------------------------------------------
     // Methods
     //---------------------------------------------------------------------------------------------------------
 
+    public function __construct(Price $price, array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        $this->price = $price;
+    }
+
+    // Set IVA value
+    public function set_iva()
+    {
+        return ($this->price->product->tax_class_id == 5) ? 1.21 : 1.1;
+    }
+
+    // Get IVA value
+    public function get_iva()
+    {
+        return $this->set_iva();
+    }
+
     // Cálculo del Coste de envío según su peso
-    public static function weight_shipping_cost($weight)
+    public function shipping_cost_weight()
     {
         foreach (static::$shipping_cost_range as $w => $c) {
-            if ($weight <= $w) {
+            if ($this->price->product->weight <= $w) {
                 return static::$shipping_cost_range[$w];
             }
             // if weight > 30 => shipping_cost = $last_cost (from last array item)
@@ -73,102 +82,70 @@ class PriceAmazon extends Model
     }
 
     // Coste de envío final
-    protected static function shipping_cost($weight)
+    public function shipping_cost()
     {
-        return static::weight_shipping_cost($weight) - static::$customer_shipping_cost;
+        return $this->shipping_cost_weight() - static::$customer_shipping_cost;
     }
 
     // Cálculo del margen a añadir al precio en Amazon
-    protected static function margin($animalear_margin, $animalear_pvp)
+    public function margin()
     {
-        if ($animalear_margin >= $animalear_pvp * 0.05) {
-            return $animalear_margin / 2;
+        if ($this->price->margin_e >= $this->price->pvp * 0.05) {
+            return $this->price->margin_e / 2;
         }
 
-        return $animalear_margin;
+        return $this->price->margin_e;
     }
 
     // Cálculo del PVP mínimo Amazon
-    protected static function minimum_price($shipping_cost, $pnn, $margin, $iva, $animalear_price)
+    public function minimum_price()
     {
         $minimum_price = (
                 static::$logistic_cost +
-                $shipping_cost +
-                $pnn +
-                $margin
-        ) * static::$comission * (1 + $iva);
+                $this->shipping_cost() +
+                $this->price->pnn +
+                $this->margin()
+            ) * static::$comission * $this->get_iva();
 
-        if ($minimum_price < $animalear_price) {
-            return $animalear_price * 1.03;
-        }
+        if ($minimum_price < $this->price->pvp)
+                return $this->price->pvp * 1.03;
 
         return $minimum_price;
     }
 
     // Cálculo del PVP máximo Amazon
-    protected static function maximum_price($minimum_price)
+    public function maximum_price()
     {
         foreach (static::$maximum_price_range as $price => $increment) {
-            if ($minimum_price <= $price) {
-                return $minimum_price * static::$maximum_price_range[$price];
+            if ($this->minimum_price() <= $price) {
+                return $this->minimum_price() * static::$maximum_price_range[$price];
             }
             // if $price > 50 => maximum_price = minimum_price * last_increment
             if (end(static::$maximum_price_range) == $increment) {
-                return $minimum_price * end(static::$maximum_price_range);
+                return $this->minimum_price() * end(static::$maximum_price_range);
             }
         }
     }
 
     // Cálculo del PVP final
-    protected static function final_price($minimum_price, $maximum_price, $buy_box_price)
+    public function price()
     {
-        if (($minimum_price - 0.10 + static::$customer_shipping_cost) < $buy_box_price) {
-            return $buy_box_price - 0.10;
+        if (($this->minimum_price() - 0.10 + static::$customer_shipping_cost) < $this->price->minderest->price_amazon) {
+            return $this->price->minderest->price_amazon - 0.10;
         }
 
-        return $maximum_price;
+        return $this->maximum_price();
     }
 
     // Actualiza el precio (sin IVA) del producto
-    public function set_final_price($pnn, $minimum_price, $maximum_price, $buy_box_price, $iva)
+    public function set_price()
     {
-        $price = static::final_price($minimum_price, $maximum_price, $buy_box_price);
+        $this->sku = $this->price->product->sku;
 
-        $this->pnn = $pnn;
+        $this->pnn = $this->price->pnn;
 
-        $this->pvp = round($price / (1 + $iva), 2);
+        $this->pvp = round($this->price() / $this->get_iva(), 2);
 
         $this->save();
     }
-
-    // Actualiza todos los Precios de Amazon
-    protected function update_prices()
-    {
-        $amazon_prices = PriceAmazon::all();
-
-        foreach ($amazon_prices as $amazonPrice) {
-
-            $minimum_price = $amazonPrice::minimum_price(
-                    $amazonPrice::shipping_cost($amazonPrice->product->weight),
-                    $amazonPrice->product->price->pnn,
-                    $amazonPrice::margin(
-                            $amazonPrice->product->price->margen_estimado,
-                            $amazonPrice->product->price->pvp
-                    ),
-                    ($amazonPrice->product->tax_class_id == 5) ? 0.21 : 0.1,
-                    $amazonPrice->product->price->pvp
-            );
-
-            $maximum_price = $amazonPrice::maximum_price($minimum_price);
-
-            $amazonPrice->set_final_price(
-                    $amazonPrice->product->price->pnn,
-                    $minimum_price,
-                    $maximum_price,
-                    $amazonPrice->minderest->price,
-                    ($amazonPrice->product->tax_class_id == 5) ? 0.21 : 0.1
-            );
-        }
-    }
-
 }
