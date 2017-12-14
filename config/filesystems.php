@@ -63,6 +63,24 @@ return [
             'bucket' => env('AWS_BUCKET'),
         ],
 
+        //---------------------------------------------------------------------------------------------
+        // PRICING
+        //---------------------------------------------------------------------------------------------
+        'ftp_pricing' => [
+            'driver'   => 'ftp',
+            'host'     => '5.135.65.116',
+            'username' => 'ani_precios',
+            'password' => 'JU7wU4gyTgbb'
+        ],
+
+        'ftp_pricing_amazon' => [
+            'driver'   => 'ftp',
+            'host'     => '51.255.52.77',
+            'root'     => '/var/updatepricesauto',
+            'username' => 'animazon',
+            'password' => '4D]hy+[.dk87OgQ@u,b3'
+        ],
+
     ],
 
 ];

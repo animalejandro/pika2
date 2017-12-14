@@ -1,7 +1,8 @@
 <?php
 
 use App\Http\Controllers\Pricing\PriceAmazonController;
-use Illuminate\Foundation\Inspiring;
+
+use Carbon\Carbon;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,10 +15,10 @@ use Illuminate\Foundation\Inspiring;
 |
 */
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->describe('Display an inspiring quote');
-
 Artisan::command('prices:amazon', function ( PriceAmazonController $priceAmazonController ) {
-    $priceAmazonController->generate();
+    $priceAmazonController->generatePrices();
+    $priceAmazonController->exportToCSV(
+            Carbon::tomorrow()->format('Ymd').'0000-update-preus',  // Filename
+            storage_path('pricing/amazon/')                         // Path
+    );
 })->describe('Generar precios para Amazon');

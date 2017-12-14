@@ -42,8 +42,6 @@ class PriceAmazon extends Model
 
     protected $price;
 
-    protected $iva;
-
     //---------------------------------------------------------------------------------------------------------
     // Methods
     //---------------------------------------------------------------------------------------------------------
@@ -53,6 +51,28 @@ class PriceAmazon extends Model
         parent::__construct($attributes);
 
         $this->price = $price;
+    }
+
+    // Cálculo del PVP final
+    public function price()
+    {
+        if ( isset($this->price->minderest->price_amazon) ) {
+            if (($this->minimum_price() - 0.10 + static::$customer_shipping_cost) < $this->price->minderest->price_amazon) {
+                return $this->price->minderest->price_amazon - 0.10;
+            }
+        }
+
+        return $this->maximum_price();
+    }
+
+    // Actualiza el precio (sin IVA) del producto
+    public function set_price()
+    {
+        $this->sku = $this->price->product->sku;
+        $this->pnn = $this->price->pnn;
+        $this->pvp = round($this->price() / $this->get_iva(), 2);
+
+        $this->save();
     }
 
     // Set IVA value
@@ -125,27 +145,5 @@ class PriceAmazon extends Model
                 return $this->minimum_price() * end(static::$maximum_price_range);
             }
         }
-    }
-
-    // Cálculo del PVP final
-    public function price()
-    {
-        if (($this->minimum_price() - 0.10 + static::$customer_shipping_cost) < $this->price->minderest->price_amazon) {
-            return $this->price->minderest->price_amazon - 0.10;
-        }
-
-        return $this->maximum_price();
-    }
-
-    // Actualiza el precio (sin IVA) del producto
-    public function set_price()
-    {
-        $this->sku = $this->price->product->sku;
-
-        $this->pnn = $this->price->pnn;
-
-        $this->pvp = round($this->price() / $this->get_iva(), 2);
-
-        $this->save();
     }
 }
