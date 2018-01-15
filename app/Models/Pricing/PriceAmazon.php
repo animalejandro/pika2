@@ -30,7 +30,7 @@ class PriceAmazon extends Model
     protected static $customer_shipping_cost = 4.99;
 
     // Comisión añadida a cada producto vendida por Amazon
-    protected static $comission = 1.15;
+    protected static $comission = 1.18;
 
     // Maximum price increment
     protected static $maximum_price_range = [
@@ -57,8 +57,8 @@ class PriceAmazon extends Model
     public function price()
     {
         if ( isset($this->price->minderest->price_amazon) ) {
-            if (($this->minimum_price() - 0.10 + static::$customer_shipping_cost) < $this->price->minderest->price_amazon) {
-                return $this->price->minderest->price_amazon - 0.10;
+            if (($this->minimum_price() - 0.05 + static::$customer_shipping_cost) < $this->price->minderest->price_amazon) {
+                return $this->price->minderest->price_amazon - 0.05;
             }
         }
 
