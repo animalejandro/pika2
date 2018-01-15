@@ -13,6 +13,8 @@ class PriceAmazonTest extends FeatureTestCase
     protected $price2;
     protected $price3;
 
+    protected $comission = 1.18;
+
     function setUp()
     {
         parent::setUp();
@@ -107,7 +109,7 @@ class PriceAmazonTest extends FeatureTestCase
                 2.55 +
                 $priceAmazon3->shipping_cost() +
                 $this->price3->pnn +
-                $priceAmazon3->margin()) * 1.15 * $priceAmazon->get_iva();
+                $priceAmazon3->margin()) * $this->comission * $priceAmazon->get_iva();
 
         $this->assertSame($result, $priceAmazon3->minimum_price());
     }
@@ -132,7 +134,7 @@ class PriceAmazonTest extends FeatureTestCase
 
         $priceAmazon = new PriceAmazon($this->price);
 
-        $this->assertSame(($priceMinderest->price_amazon - 0.10), $priceAmazon->price());
+        $this->assertSame(($priceMinderest->price_amazon - 0.05), $priceAmazon->price());
 
         $priceMinderest = $this->createPriceMinderest([
             'sku' => $this->price2->sku,
